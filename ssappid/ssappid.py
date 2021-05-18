@@ -15,6 +15,12 @@ parser = argparse.ArgumentParser(description=(
     "A simple script to get Steam app name by appid and vice-versa"
 ), formatter_class=argparse.RawTextHelpFormatter)
 
+parser.add_argument('-v', '--verbose', action='store_true',
+                    help="Verbose logging")
+
+parser.add_argument('--verbose-all', action='store_true',
+                    help="Verbose logging (including database inserts)")
+
 parser.add_argument('-f', '--force', action='store_true',
                     help="Force refresh apps database (may take a while)")
 
@@ -28,9 +34,12 @@ parser.add_argument('-w', '--with-name', action='store_true',
                     help='Print appids with names next to it')
 
 parser.add_argument('-d', '--descending', action='store_true',
-                    help='Order by descending appids (default: ascending)', default=False)
+                    help='Order by descending appids (default: ascending)')
 
 options = parser.parse_args()
+
+if options.verbose_all:
+    options.verbose = True
 
 # Oh, there's no database yet, let's create one
 if not os.path.isfile(DATABASE_PATH):
@@ -38,7 +47,8 @@ if not os.path.isfile(DATABASE_PATH):
 
 # Force remove old database if it already exist
 if options.force:
-    print('Removing old database...')
+    if options.verbose:
+        print('Removing old database...')
     try:
         os.remove(DATABASE_PATH)
     except OSError:
@@ -54,12 +64,15 @@ conn.commit()
 
 # Force update appids in database
 if options.force:
-    print('Retrieving apps list...')
+    if options.verbose:
+        print('Retrieving apps list...')
     webUrl = urllib.request.urlopen(STEAM_APPS_URL)
     decoded_json = json.loads(webUrl.read())
 
     for app in decoded_json['applist']['apps']:
         c.execute('INSERT OR IGNORE INTO apps VALUES ({}, \'{}\')'.format(app["appid"], app["name"].replace("'", "''")));
+        if options.verbose_all:
+            print('{} {}'.format(app["appid"], app["name"]))
     conn.commit()
 
 # Search by appid
